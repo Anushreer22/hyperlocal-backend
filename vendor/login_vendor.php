@@ -6,9 +6,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') { exit(0); }
 
 session_start();
 
-// SIMPLE FIX: Always log in as vendor
 $_SESSION['vendor_id'] = 1;
 $_SESSION['shop_name'] = 'Demo Shop';
 
-echo "Vendor login successful! Redirecting...";
+// ACTUAL REDIRECT
+header("Location: https://anushreer22.github.io/hyperlocal-marketplace/vendor/dashboard.html");
+exit();
 ?>

@@ -6,9 +6,10 @@ if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') { exit(0); }
 
 session_start();
 
-// SIMPLE FIX: Always log in as customer
 $_SESSION['customer_id'] = 1;
 $_SESSION['customer_name'] = 'Demo Customer';
 
-echo "Customer login successful! Redirecting...";
+// ACTUAL REDIRECT  
+header("Location: https://anushreer22.github.io/hyperlocal-marketplace/customer/dashboard.html");
+exit();
 ?>
