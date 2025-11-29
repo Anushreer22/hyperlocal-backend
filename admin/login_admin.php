@@ -1,40 +1,25 @@
 <?php
-// backend/admin/login_admin.php
+// CORS headers
+header("Access-Control-Allow-Origin: https://anushreer22.github.io");
+header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization");
+if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') { exit(0); }
 
+include '../inc/db.php';
 session_start();
-require_once "../inc/db.php";
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $email    = $_POST['email']    ?? '';
-    $password = $_POST['password'] ?? '';
-
-    if (empty($email) || empty($password)) {
-        die("Both email and password are required.");
+// For demo - you should create an admin table later
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $email = pg_escape_string($conn, $_POST['email']);
+    $password = $_POST['password'];
+    
+    // Temporary admin credentials (replace with database later)
+    if ($email === 'admin@hyperlocal.com' && $password === 'admin123') {
+        $_SESSION['admin_id'] = 1;
+        $_SESSION['admin_email'] = $email;
+        echo "Admin login successful!";
+    } else {
+        echo "Invalid admin credentials!";
     }
-
-    $stmt = $conn->prepare("SELECT id, password_hash FROM admins WHERE email = ?");
-    if (!$stmt) {
-        die("Prepare failed: " . $conn->error);
-    }
-
-    $stmt->bind_param("s", $email);
-    $stmt->execute();
-    $stmt->store_result();
-
-    if ($stmt->num_rows === 1) {
-        $stmt->bind_result($admin_id, $hash);
-        $stmt->fetch();
-
-        if (password_verify($password, $hash)) {
-            // Login success
-            $_SESSION['admin_id'] = $admin_id;
-            header("Location: dashboard.php");
-            exit;
-        }
-    }
-
-    echo "Invalid admin credentials.";
-} else {
-    echo "Invalid request.";
 }
 ?>
