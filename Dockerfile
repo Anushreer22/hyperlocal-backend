@@ -13,7 +13,12 @@ RUN a2enmod rewrite
 # Copy application files
 COPY . /var/www/html/
 
-# Set proper permissions
+# Create uploads directories and set proper permissions
+RUN mkdir -p /var/www/html/uploads/licenses /var/www/html/uploads/products
+RUN chown -R www-data:www-data /var/www/html/uploads/
 RUN chmod -R 755 /var/www/html/uploads/
+
+# Set ownership of entire html directory to Apache user
+RUN chown -R www-data:www-data /var/www/html/
 
 WORKDIR /var/www/html

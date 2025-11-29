@@ -1,102 +1,53 @@
 <?php
-// backend/vendor/register_vendor.php
+// CORS headers
+header("Access-Control-Allow-Origin: https://anushreer22.github.io");
+header("Access-Control-Allow-Methods: GET, POST, PUT, DELETE, OPTIONS");
+header("Access-Control-Allow-Headers: Content-Type, Authorization");
+if ($_SERVER['REQUEST_METHOD'] == 'OPTIONS') { exit(0); }
 
-require_once "../inc/db.php";
+include '../inc/db.php';
+session_start();
 
-if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-
-    // READ FIELDS – names MUST match your HTML form
-    $owner_name   = $_POST['owner_name']   ?? '';
-    $shop_name    = $_POST['shop_name']    ?? '';
-    $shop_address = $_POST['shop_address'] ?? '';
-    $location     = $_POST['location']     ?? '';
-    $shop_type    = $_POST['shop_type']    ?? '';
-    $phone        = $_POST['phone']        ?? '';
-    $email        = $_POST['email']        ?? '';
-    $password     = $_POST['password']     ?? '';
-
-    // These are optional now (only used if you altered DB for lat/lng)
-    $latitude     = $_POST['latitude']     ?? null;
-    $longitude    = $_POST['longitude']    ?? null;
-
-    // BASIC VALIDATION
-    if (
-        empty($owner_name) || empty($shop_name) || empty($shop_address) ||
-        empty($location)   || empty($shop_type)  || empty($phone) ||
-        empty($email)      || empty($password)
-    ) {
-        die("All fields are required.");
+if ($_SERVER['REQUEST_METHOD'] == 'POST') {
+    $shop_name = pg_escape_string($conn, $_POST['shop_name']);
+    $owner_name = pg_escape_string($conn, $_POST['owner_name']);
+    $email = pg_escape_string($conn, $_POST['email']);
+    $phone = pg_escape_string($conn, $_POST['phone']);
+    $address = pg_escape_string($conn, $_POST['address']);
+    $password = password_hash($_POST['password'], PASSWORD_DEFAULT);
+    
+    // Handle file upload with absolute path
+    $license_dir = __DIR__ . '/../uploads/licenses/';
+    
+    // Create directory if it doesn't exist
+    if (!is_dir($license_dir)) {
+        mkdir($license_dir, 0755, true);
     }
-
-    $password_hash = password_hash($password, PASSWORD_DEFAULT);
-
-    // HANDLE LICENSE PDF UPLOAD
-    $license_path = null;
-    if (isset($_FILES['license_pdf']) && $_FILES['license_pdf']['error'] === UPLOAD_ERR_OK) {
-        $uploadDir = "../uploads/licenses/";
-        if (!is_dir($uploadDir)) {
-            mkdir($uploadDir, 0777, true);
-        }
-
-        $tmpName = $_FILES['license_pdf']['tmp_name'];
-        $originalName = basename($_FILES['license_pdf']['name']);
-        $ext = strtolower(pathinfo($originalName, PATHINFO_EXTENSION));
-
-        if ($ext !== 'pdf') {
-            die("Only PDF license files are allowed.");
-        }
-
-        $newName = "license_" . time() . "_" . rand(1000, 9999) . ".pdf";
-        $destPath = $uploadDir . $newName;
-
-        if (!move_uploaded_file($tmpName, $destPath)) {
-            die("Failed to upload license file.");
-        }
-
-        $license_path = "uploads/licenses/" . $newName;
-    } else {
-        die("License PDF is required.");
-    }
-
-    // INSERT VENDOR – simple version (without forcing lat/lng)
-    $stmt = $conn->prepare(
-        "INSERT INTO vendors
-         (owner_name, shop_name, shop_address, location, shop_type, phone, email, password_hash, license_pdf_path, status)
-         VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 'pending')"
-    );
-
-    if (!$stmt) {
-        die("Prepare failed: " . $conn->error);
-    }
-
-    $stmt->bind_param(
-        "sssssssss",
-        $owner_name,
-        $shop_name,
-        $shop_address,
-        $location,
-        $shop_type,
-        $phone,
-        $email,
-        $password_hash,
-        $license_path
-    );
-
-    try {
-        if ($stmt->execute()) {
-            echo "✅ Vendor registered successfully. Your account is pending admin approval.";
-            // Later you can redirect to login:
-            // header('Location: ../../frontend/vendor/vendor-login.html');
-            // exit;
-        }
-    } catch (mysqli_sql_exception $e) {
-        if ($e->getCode() == 1062) {
-            echo "⚠️ This email is already registered as a vendor.";
+    
+    $license_file = '';
+    if (isset($_FILES['license_file']) && $_FILES['license_file']['error'] == 0) {
+        $file_tmp = $_FILES['license_file']['tmp_name'];
+        $file_name = 'license_' . time() . '_' . rand(1000,9999) . '.pdf';
+        $license_file = $license_dir . $file_name;
+        
+        if (move_uploaded_file($file_tmp, $license_file)) {
+            // Success - store relative path in database
+            $license_file = 'uploads/licenses/' . $file_name;
         } else {
-            echo "❌ Database error: " . $e->getMessage();
+            echo "File upload failed. Check directory permissions.";
+            exit;
         }
     }
-} else {
-    echo "Invalid request.";
+    
+    // Insert into database
+    $query = "INSERT INTO vendors (shop_name, owner_name, email, phone, address, password, license_file, status) 
+              VALUES ($1, $2, $3, $4, $5, $6, $7, 'pending')";
+    $result = pg_query_params($conn, $query, array($shop_name, $owner_name, $email, $phone, $address, $password, $license_file));
+    
+    if ($result) {
+        echo "Registration successful! Waiting for admin approval.";
+    } else {
+        echo "Registration failed: " . pg_last_error($conn);
+    }
 }
 ?>
